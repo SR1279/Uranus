@@ -78,8 +78,8 @@ Miners can grade a patch or a script against a real retired task with `scripts/t
 
 ## Demo miner
 
-The included demo miner is a protocol reference backed by Amazon Bedrock Chat
-Completions. It requires its own Bedrock API key; validators do not need one.
+The included demo miner is a protocol reference backed by OpenRouter Chat
+Completions. It requires its own OpenRouter API key; validators do not need one.
 See [`docs/DEMO_MINER.md`](docs/DEMO_MINER.md).
 
 ## Development

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import codecs
 import json
+import os
 import shutil
 import stat
 import tempfile
@@ -16,11 +17,12 @@ import httpx
 from ..policy import ValidatorPolicy
 from .api import MinerTaskRequest
 from .archive import ArchiveLimits, extract_archive
-from .download import download_artifact
+from .download import ArtifactDownloadError, download_artifact
 from .identity import validate_relative_path
 
 READ_BYTES = 32 * 1024
 LIST_ENTRIES = 200
+DOWNLOAD_ATTEMPTS = 3
 
 
 def _files_under(root: Path, *, limit: int) -> list[Path]:
@@ -125,11 +127,24 @@ class WorkspaceReader:
         )
 
 
+def _keep_copy(archive: Path, destination: Path) -> None:
+    """Keep the verified archive, for a rerun of a failed check; a link costs no space."""
+    try:
+        os.link(archive, destination)
+    except OSError:
+        try:
+            shutil.copyfile(archive, destination)
+        except OSError:
+            destination.unlink(missing_ok=True)  # the copy is for diagnosis only; never fail the task
+
+
 @asynccontextmanager
 async def open_miner_workspace(
     http: httpx.AsyncClient,
     request: MinerTaskRequest,
     policy: ValidatorPolicy,
+    work_dir: Path | None = None,
+    keep_archive: Path | None = None,
 ):
     limits = ArchiveLimits(
         max_compressed_bytes=policy.v3_workspace_compressed_bytes,
@@ -141,7 +156,7 @@ async def open_miner_workspace(
     )
     if request.workspace.expanded_size_bytes > limits.max_expanded_bytes:
         raise ValueError("workspace exceeds the expanded byte limit")
-    with tempfile.TemporaryDirectory(prefix="hone-v3-miner-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="hone-v3-miner-", dir=work_dir) as temporary:
         root = Path(temporary)
         required = (
             request.workspace.compressed_size_bytes
@@ -149,14 +164,23 @@ async def open_miner_workspace(
         )
         if shutil.disk_usage(root).free < required:
             raise ValueError("insufficient workspace storage")
-        archive = await download_artifact(
-            http,
-            request.workspace_url,
-            request.workspace,
-            root / "workspace.tar.zst",
-            limits,
-            allowed_origins=frozenset(policy.v3_artifact_origins),
-        )
+        for attempt in range(DOWNLOAD_ATTEMPTS):
+            try:
+                archive = await download_artifact(
+                    http,
+                    request.workspace_url,
+                    request.workspace,
+                    root / f"workspace-{attempt}.tar.zst",
+                    limits,
+                    allowed_origins=frozenset(policy.v3_artifact_origins),
+                )
+                break
+            except ArtifactDownloadError:  # one lost connection should not cost a task
+                if attempt == DOWNLOAD_ATTEMPTS - 1:
+                    raise
+                await asyncio.sleep(0.5 * (attempt + 1))
+        if keep_archive is not None:
+            await asyncio.to_thread(_keep_copy, archive, keep_archive)
         workspace = root / "workspace"
         extracting = asyncio.create_task(
             asyncio.to_thread(

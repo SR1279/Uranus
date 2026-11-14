@@ -12,6 +12,7 @@ from __future__ import annotations
 import difflib
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -111,7 +112,7 @@ def grade(tmp_path: Path, patch: bytes, tag: str):
     rp = policy()
     return evaluate_repository(
         workspace, patch, identity(), manifest, verifier,
-        rp.supervisor, rp.tree, rp.patch, rp.docker_binary, f"fixture-{tag}",
+        rp.supervisor, rp.tree, rp.patch, rp.docker_binary, f"fixture-{tag}-{os.getpid()}",
     )
 
 

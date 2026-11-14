@@ -17,3 +17,5 @@ venv/
 *.log
 /cache/
 /data/
+/workspaces/
+.tools/

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 from rlvr.policy import RELEASE_POLICY
@@ -103,7 +104,7 @@ def grade(tmp_path: Path, script: bytes, tag: str):
     rp = policy()
     return evaluate_terminal(
         workspace, script, identity(), manifest, verifier,
-        rp.supervisor, rp.tree, rp.script, rp.docker_binary, f"fixture-{tag}",
+        rp.supervisor, rp.tree, rp.script, rp.docker_binary, f"fixture-{tag}-{os.getpid()}",
     )
 
 

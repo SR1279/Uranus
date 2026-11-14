@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -113,12 +114,12 @@ def grade(fixture: Path, answer_path: Path) -> int:
         if terminal:
             result = evaluate_terminal(
                 workspace, answer, identity, manifest, verifier,
-                policy.supervisor, policy.tree, policy.script, policy.docker_binary, "try-task",
+                policy.supervisor, policy.tree, policy.script, policy.docker_binary, f"try-task-{os.getpid()}",
             )
         else:
             result = evaluate_repository(
                 workspace, answer, identity, manifest, verifier,
-                policy.supervisor, policy.tree, policy.patch, policy.docker_binary, "try-task",
+                policy.supervisor, policy.tree, policy.patch, policy.docker_binary, f"try-task-{os.getpid()}",
             )
     code = getattr(result.reason_code, "value", None)
     print(f"status: {result.status}" + (f" ({code})" if code else ""))

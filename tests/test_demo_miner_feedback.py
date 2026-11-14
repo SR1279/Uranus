@@ -279,7 +279,7 @@ def make_receiver(**settings_updates):
             raise AssertionError("notices must not invoke the model")
 
     return DemoMiner(
-        DemoMinerSettings(_env_file=None, bedrock_api_key="key", **settings_updates),
+        DemoMinerSettings(_env_file=None, openrouter_api_key="key", **settings_updates),
         UnusedProvider(),
         wallet=SimpleNamespace(hotkey=SimpleNamespace(ss58_address="miner")),
         metagraph=SimpleNamespace(
@@ -707,7 +707,7 @@ async def test_served_context_is_created_by_successful_solve_response(
     request = task(hotkey="miner")
     body = notice_body(challenge_id=request.challenge_id, task_id=request.task_id)
 
-    async def solve(received, _timeout):
+    async def solve(received, _timeout, _notes=None):
         assert received == request
         if not solve_succeeds:
             raise TimeoutError("model deadline exceeded")

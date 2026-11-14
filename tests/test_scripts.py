@@ -7,6 +7,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import types
 from pathlib import Path
@@ -125,14 +126,20 @@ def test_preflight_requires_an_unsigned_lease_rejection(
             encoding="utf-8",
         )
         docker.chmod(0o755)
+        # The script reads the .env beside it, so a copy keeps an operator's real one out of this test.
+        checkout = tmp_path / "checkout" / "scripts"
+        checkout.mkdir(parents=True)
+        for name in ("preflight_validator.sh", "require_service_user.sh"):
+            shutil.copy2(SCRIPTS / name, checkout / name)
         env = {
             **os.environ,
-            "PATH": f"{tmp_path}:{os.environ['PATH']}",
+            "PATH": f"{tmp_path}:{Path(sys.executable).parent}:{os.environ['PATH']}",
+            "PYTHONPATH": str(REPO_ROOT),
             "PROBLEM_SERVER_URL": f"http://127.0.0.1:{server.server_port}",
             "SUBTENSOR_NETWORK": "test",
         }
         result = subprocess.run(
-            ["bash", str(SCRIPTS / "preflight_validator.sh")],
+            ["bash", str(checkout / "preflight_validator.sh")],
             cwd=REPO_ROOT,
             env=env,
             capture_output=True,
